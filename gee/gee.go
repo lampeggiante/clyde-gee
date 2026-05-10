@@ -2,15 +2,16 @@ package gee
 
 import (
 	"net/http"
+	"strings"
 )
 
 type HandlerFunc func(*Context)
 
 type RouterGroup struct {
-	prefix string
+	prefix      string
 	middlewares []HandlerFunc // support middlewares
-	parent *RouterGroup  // support nesting
-	engine *Engine // all groups share a Engine instance
+	parent      *RouterGroup  // support nesting
+	engine      *Engine       // all groups share a Engine instance
 }
 
 // 将engine作为最顶层的RouterGroup
@@ -54,6 +55,10 @@ func (group *RouterGroup) POST(pattern string, handler HandlerFunc) {
 	group.addRoute("POST", pattern, handler)
 }
 
+func (group *RouterGroup) Use(middlewares ...HandlerFunc) {
+	group.middlewares = append(group.middlewares, middlewares...)
+}
+
 // Run
 func (engine *Engine) Run(addr string) (err error) {
 	return http.ListenAndServe(addr, engine)
@@ -61,6 +66,13 @@ func (engine *Engine) Run(addr string) (err error) {
 
 // ServeHTTP
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	var middlewares []HandlerFunc
+	for _, group := range engine.groups {
+		if strings.HasPrefix(req.URL.Path, group.prefix) {
+			middlewares = append(middlewares, group.middlewares...)
+		}
+	}
 	c := newContext(w, req)
+	c.handlers = middlewares
 	engine.router.handle(c)
 }
