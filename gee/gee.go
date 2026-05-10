@@ -25,14 +25,6 @@ type Engine struct {
 	funcMap       template.FuncMap   // for html render
 }
 
-// Engine 创建工厂方法
-func New() *Engine {
-	engine := &Engine{router: newRouter()}
-	engine.RouterGroup = &RouterGroup{engine: engine}
-	engine.groups = []*RouterGroup{engine.RouterGroup}
-	return engine
-}
-
 func (group *RouterGroup) Group(prefix string) *RouterGroup {
 	engine := group.engine
 	newGroup := &RouterGroup{
@@ -83,6 +75,11 @@ func (group RouterGroup) Static(relativePath string, root string) {
 }
 
 // Engine
+func Default() *Engine {
+	engine := New()
+	engine.Use(Logger(), Recovery())
+	return engine
+}
 
 func (engine *Engine) SetFuncMap(funcMap template.FuncMap) {
 	engine.funcMap = funcMap
@@ -90,6 +87,14 @@ func (engine *Engine) SetFuncMap(funcMap template.FuncMap) {
 
 func (engine *Engine) LoadHTMLGlob(pattern string) {
 	engine.htmlTemplates = template.Must(template.New("").Funcs(engine.funcMap).ParseGlob(pattern))
+}
+
+// Engine 创建工厂方法
+func New() *Engine {
+	engine := &Engine{router: newRouter()}
+	engine.RouterGroup = &RouterGroup{engine: engine}
+	engine.groups = []*RouterGroup{engine.RouterGroup}
+	return engine
 }
 
 // Run
