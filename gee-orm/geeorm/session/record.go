@@ -9,6 +9,7 @@ import (
 func (s *Session) Insert(values ...any) (int64, error) {
 	recordValues := make([]any, 0)
 	for _, value := range values {
+		s.CallMethod(BeforeInsert, value)
 		table := s.Model(value).RefTable()
 		s.clause.Set(clause.INSERT, table.Name, table.FieldNames)
 		recordValues = append(recordValues, table.RecordValues(value))
@@ -22,10 +23,13 @@ func (s *Session) Insert(values ...any) (int64, error) {
 		return 0, err
 	}
 
+	s.CallMethod(AfterInsert, nil)
+
 	return result.RowsAffected()
 }
 
 func (s *Session) Find(values any) error {
+	s.CallMethod(BeforeQuery, nil)
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem()
 	table := s.Model(reflect.New(destType).Elem().Interface()).RefTable()
@@ -46,12 +50,14 @@ func (s *Session) Find(values any) error {
 		if err := rows.Scan(values...); err != nil {
 			return err
 		}
+		s.CallMethod(AfterQuery, dest.Addr().Interface())
 		destSlice.Set(reflect.Append(destSlice, dest))
 	}
 	return rows.Close()
 }
 
 func (s *Session) Update(kv ...any) (int64, error) {
+	s.CallMethod(BeforeUpdate, nil)
 	// 类型转化为 map
 	m, ok := kv[0].(map[string]any)
 	// 转化失败后，使用平铺的方式转化
@@ -67,17 +73,20 @@ func (s *Session) Update(kv ...any) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	s.CallMethod(AfterUpdate, nil)
 	return result.RowsAffected()
 }
 
 // Delete records with where clause
 func (s *Session) Delete() (int64, error) {
+	s.CallMethod(BeforeDelete, nil)
 	s.clause.Set(clause.DELETE, s.RefTable().Name)
 	sql, vars := s.clause.Build(clause.DELETE, clause.WHERE)
 	result, err := s.Raw(sql, vars...).Exec()
 	if err != nil {
 		return 0, err
 	}
+	s.CallMethod(AfterDelete, nil)
 	return result.RowsAffected()
 }
 
