@@ -26,10 +26,10 @@ func (s *Session) CreateTable() error {
 	table := s.RefTable()
 	var columns []string
 	for _, field := range table.Fields {
-		columns = append(columns, fmt.Sprintf("%s %s %s;", field.Name, field.Type, field.Type))
+		columns = append(columns, fmt.Sprintf("%s %s %s", field.Name, field.Type, field.Tag))
 	}
-	desc := strings.Join(columns, ",")
-	_, err := s.Raw(fmt.Sprintf("CREATE TABLE %s (%s)", table.Name, desc)).Exec()
+	desc := strings.Join(columns, ", ")
+	_, err := s.Raw(fmt.Sprintf("CREATE TABLE %s (%s);", table.Name, desc)).Exec()
 	return err
 }
 
