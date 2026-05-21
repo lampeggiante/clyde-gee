@@ -5,6 +5,7 @@
 package geerpc
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -90,7 +91,8 @@ func (server *Server) findService(serviceMethod string) (svc *service, mtype *me
 func (server *Server) ServeConn(conn io.ReadWriteCloser) {
 	defer func() { _ = conn.Close() }()
 	var opt Option
-	if err := json.NewDecoder(conn).Decode(&opt); err != nil {
+	dec := json.NewDecoder(conn)
+	if err := dec.Decode(&opt); err != nil {
 		log.Println("rpc server: options error: ", err)
 		return
 	}
@@ -103,8 +105,36 @@ func (server *Server) ServeConn(conn io.ReadWriteCloser) {
 		log.Printf("rpc server: invalid codec type %s", opt.CodecType)
 		return
 	}
-	server.serveCodec(f(conn), &opt)
+	// json.Decoder may have already buffered bytes that belong to the
+	// following codec stream. Strip the trailing whitespace ('\n') that
+	// json.Encoder writes after each value, then prepend the rest before
+	// the conn so the codec doesn't miss any data.
+	leftover, _ := io.ReadAll(dec.Buffered())
+	for len(leftover) > 0 {
+		c := leftover[0]
+		if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
+			leftover = leftover[1:]
+			continue
+		}
+		break
+	}
+	rwc := &connWithReader{
+		r: io.MultiReader(bytes.NewReader(leftover), conn),
+		c: conn,
+	}
+	server.serveCodec(f(rwc), &opt)
 }
+
+// connWithReader replays buffered bytes into the codec while delegating
+// writes and close to the underlying connection.
+type connWithReader struct {
+	r io.Reader
+	c io.ReadWriteCloser
+}
+
+func (c *connWithReader) Read(p []byte) (int, error)  { return c.r.Read(p) }
+func (c *connWithReader) Write(p []byte) (int, error) { return c.c.Write(p) }
+func (c *connWithReader) Close() error                { return c.c.Close() }
 
 // invalidRequest is a placeholder for response argv when error occurs
 var invalidRequest = struct{}{}
