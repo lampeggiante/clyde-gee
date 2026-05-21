@@ -22,15 +22,15 @@ type Discovery interface {
 	GetAll() ([]string, error)
 }
 
-type MultiServerDiscovery struct {
+type MultiServersDiscovery struct {
 	r       *rand.Rand
 	mu      sync.Mutex
 	servers []string
 	index   int
 }
 
-func NewMultiServerDiscovery(servers []string) *MultiServerDiscovery {
-	d := &MultiServerDiscovery{
+func NewMultiServerDiscovery(servers []string) *MultiServersDiscovery {
+	d := &MultiServersDiscovery{
 		servers: servers,
 		r:       rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
@@ -38,20 +38,20 @@ func NewMultiServerDiscovery(servers []string) *MultiServerDiscovery {
 	return d
 }
 
-var _ Discovery = (*MultiServerDiscovery)(nil)
+var _ Discovery = (*MultiServersDiscovery)(nil)
 
-func (d *MultiServerDiscovery) Refresh() error {
+func (d *MultiServersDiscovery) Refresh() error {
 	return nil
 }
 
-func (d *MultiServerDiscovery) Update(servers []string) error {
+func (d *MultiServersDiscovery) Update(servers []string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.servers = servers
 	return nil
 }
 
-func (d *MultiServerDiscovery) Get(mode SelectMode) (string, error) {
+func (d *MultiServersDiscovery) Get(mode SelectMode) (string, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	n := len(d.servers)
@@ -70,7 +70,7 @@ func (d *MultiServerDiscovery) Get(mode SelectMode) (string, error) {
 	}
 }
 
-func (d *MultiServerDiscovery) GetAll() ([]string, error) {
+func (d *MultiServersDiscovery) GetAll() ([]string, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	servers := make([]string, len(d.servers))
